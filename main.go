@@ -114,6 +114,11 @@ func makeInvalidTimeKey(chip string, timestamp time.Time) string {
 	return fmt.Sprintf("%s:%d", chip, timestamp.UnixNano())
 }
 
+// Hjälpfunktion för att avrunda tid uppåt till närmsta sekund
+func roundUpToSecond(t time.Time) time.Time {
+	return t.Add(time.Second - time.Duration(t.Nanosecond()))
+}
+
 func main() {
 	myApp := app.NewWithID("se.tidtagning.app")
 	window := myApp.NewWindow("Tidtagning")
@@ -566,6 +571,9 @@ func getResults(filename string, race Race) []ChipResult {
 			continue
 		}
 
+		// Avrunda tiden uppåt till närmsta sekund
+		recordTime = roundUpToSecond(recordTime)
+
 		// Kontrollera om tiden är efter starttiden och efter minimitiden
 		if recordTime.After(race.StartTime) {
 			duration := recordTime.Sub(race.StartTime)
@@ -831,6 +839,9 @@ func findNextValidTime(filename string, race Race, invalidTime time.Time, chip s
 		if err != nil {
 			continue
 		}
+
+		// Avrunda tiden uppåt till närmsta sekund
+		recordTime = roundUpToSecond(recordTime)
 
 		// Kontrollera om tiden är efter den ogiltiga tiden och efter starttiden
 		if recordTime.After(invalidTime) && recordTime.After(race.StartTime) {
