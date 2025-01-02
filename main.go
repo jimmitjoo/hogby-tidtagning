@@ -337,7 +337,7 @@ func formatResults(race Race, results []ChipResult) string {
 	return result.String()
 }
 
-// Lägg till denna funktion för att spara/läsa lopp
+// Spara/läsa lopp
 func saveRaces(races []Race) error {
 	file, err := os.Create("races.json")
 	if err != nil {
@@ -504,7 +504,7 @@ func showEditRaceForm(race Race, index int, races []Race, app fyne.App, parentWi
 	editWindow.Show()
 }
 
-// Lägg till denna hjälpfunktion
+// Större fildialog
 func showLargeFileDialog(callback func(fyne.URIReadCloser, error), window fyne.Window) {
 	d := dialog.NewFileOpen(callback, window)
 	// Sätt storlek direkt på dialogen
@@ -603,7 +603,7 @@ func getResults(filename string, race Race) []ChipResult {
 	return results
 }
 
-// Lägg till denna hjälpfunktion för att visa resultat
+// Visa resultat
 func showResults(resultTable *widget.Table, race Race, races []Race, index int, app fyne.App) {
 	resultWindow := app.NewWindow(fmt.Sprintf("Resultat - %s", race.Name))
 
@@ -668,11 +668,11 @@ func showResults(resultTable *widget.Table, race Race, races []Race, index int, 
 	table.SetColumnWidth(1, 150)
 	table.SetColumnWidth(2, 150)
 
-	// Lägg till sökfält
+	// Sökfält
 	searchEntry := widget.NewEntry()
 	searchEntry.SetPlaceHolder("Sök startnummer...")
 
-	// Lägg till sökfunktion
+	// Sökfunktion
 	searchEntry.OnChanged = func(searchText string) {
 		if searchText == "" {
 			currentResults = originalResults
@@ -793,7 +793,7 @@ func showResults(resultTable *widget.Table, race Race, races []Race, index int, 
 	resultWindow.Show()
 }
 
-// Lägg till denna hjälpfunktion för att hitta nästa giltiga tid för ett chip
+// Hitta nästa giltiga tid för ett chip
 func findNextValidTime(filename string, race Race, invalidTime time.Time, chip string) (time.Time, bool) {
 	file, err := os.Open(filename)
 	if err != nil {
