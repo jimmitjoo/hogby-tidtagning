@@ -24,100 +24,18 @@ import (
 	"fyne.io/fyne/v2/widget"
 )
 
-type DurationRace struct {
-	Name         string          `json:"name"`
-	StartTime    time.Time       `json:"startTime"`
-	MinTime      string          `json:"minTime"`
-	Chips        map[string]bool `json:"chips"`
-	ResultsFile  string          `json:"resultsFile"`
-	InvalidTimes map[string]bool `json:"invalidTimes"`
-	LiveUpdate   bool            `json:"liveUpdate"`
-}
+var (
+	appLogger *Logger
+	once      sync.Once
+)
 
-// MarshalJSON för Race
-func (r Race) MarshalJSON() ([]byte, error) {
-	return json.Marshal(DurationRace{
-		Name:         r.Name,
-		StartTime:    r.StartTime,
-		MinTime:      r.MinTime.String(),
-		Chips:        r.Chips,
-		ResultsFile:  r.ResultsFile,
-		InvalidTimes: r.InvalidTimes,
-		LiveUpdate:   r.LiveUpdate,
-	})
-}
-
-// UnmarshalJSON för Race
-func (r *Race) UnmarshalJSON(data []byte) error {
-	var dr DurationRace
-	if err := json.Unmarshal(data, &dr); err != nil {
-		return err
+func NewAppState() *AppState {
+	return &AppState{
+		stopWatchers:   make(map[string]func()),
+		activeSearches: make(map[string]string),
+		resultWindows:  make(map[string]*ResultWindow),
+		logger:         getLogger(),
 	}
-
-	minTime, err := time.ParseDuration(dr.MinTime)
-	if err != nil {
-		return err
-	}
-
-	r.Name = dr.Name
-	r.StartTime = dr.StartTime
-	r.MinTime = minTime
-	r.Chips = dr.Chips
-	r.ResultsFile = dr.ResultsFile
-	r.InvalidTimes = dr.InvalidTimes
-	r.LiveUpdate = dr.LiveUpdate
-	return nil
-}
-
-type DurationChipResult struct {
-	Chip     string    `json:"chip"`
-	Time     time.Time `json:"time"`
-	Duration string    `json:"duration"`
-}
-
-// MarshalJSON för ChipResult
-func (cr ChipResult) MarshalJSON() ([]byte, error) {
-	return json.Marshal(DurationChipResult{
-		Chip:     cr.Chip,
-		Time:     cr.Time,
-		Duration: cr.Duration.String(),
-	})
-}
-
-// UnmarshalJSON för ChipResult
-func (cr *ChipResult) UnmarshalJSON(data []byte) error {
-	var dcr DurationChipResult
-	if err := json.Unmarshal(data, &dcr); err != nil {
-		return err
-	}
-
-	duration, err := time.ParseDuration(dcr.Duration)
-	if err != nil {
-		return err
-	}
-
-	cr.Chip = dcr.Chip
-	cr.Time = dcr.Time
-	cr.Duration = duration
-	return nil
-}
-
-type Race struct {
-	Name         string          `json:"name"`
-	StartTime    time.Time       `json:"startTime"`
-	MinTime      time.Duration   `json:"minTime"`
-	Chips        map[string]bool `json:"chips"`
-	ResultsFile  string          `json:"resultsFile"`
-	InvalidTimes map[string]bool `json:"invalidTimes"`
-	LiveUpdate   bool            `json:"liveUpdate"`
-}
-
-type ChipResult struct {
-	Chip     string        `json:"chip"`
-	Time     time.Time     `json:"time"`
-	Duration time.Duration `json:"duration"`
-	Invalid  bool          `json:"invalid"`
-	Manual   bool          `json:"manual"`
 }
 
 // Hjälpfunktion för att skapa nyckel för InvalidTimes
@@ -128,78 +46,6 @@ func makeInvalidTimeKey(chip string, timestamp time.Time) string {
 // Hjälpfunktion för att avrunda tid uppåt till närmsta sekund
 func roundUpToSecond(t time.Time) time.Time {
 	return t.Add(time.Second - time.Duration(t.Nanosecond()))
-}
-
-// Lägg till en global map för att hålla stopWatcher-funktioner
-var stopWatchers = make(map[string]func())
-
-// Lägg till en funktion för att övervaka filändringar
-func watchFile(filename string, raceName string, callback func()) (func(), error) {
-	if filename == "" {
-		return nil, fmt.Errorf("ingen fil att övervaka")
-	}
-
-	getLogger().Log("Startar övervakning av fil: %s för lopp: %s", filename, raceName)
-
-	lastModified, err := getFileModTime(filename)
-	if err != nil {
-		return nil, fmt.Errorf("kunde inte läsa filtid: %v", err)
-	}
-
-	quit := make(chan bool)
-	done := make(chan bool)
-
-	go func() {
-		ticker := time.NewTicker(1 * time.Second)
-		defer ticker.Stop()
-
-		for {
-			select {
-			case <-quit:
-				getLogger().Log("Stoppar övervakning av fil: %s för lopp: %s", filename, raceName)
-				done <- true
-				return
-			case <-ticker.C:
-				currentModTime, err := getFileModTime(filename)
-				if err != nil {
-					getLogger().Log("Fel vid kontroll av fil %s: %v", filename, err)
-					continue
-				}
-				if currentModTime.After(lastModified) {
-					lastModified = currentModTime
-					getLogger().Log("Fil ändrad: %s, anropar callback", filename)
-
-					// Ta bort cache innan vi läser nya resultat
-					cacheFile := fmt.Sprintf("results_%s.json", raceName)
-					if err := os.Remove(cacheFile); err != nil && !os.IsNotExist(err) {
-						getLogger().Log("Kunde inte ta bort cache: %v", err)
-					}
-
-					callback()
-				}
-			}
-		}
-	}()
-
-	return func() {
-		quit <- true
-		<-done
-	}, nil
-}
-
-func getFileModTime(filename string) (time.Time, error) {
-	info, err := os.Stat(filename)
-	if err != nil {
-		return time.Time{}, err
-	}
-	return info.ModTime(), nil
-}
-
-// Lägg till en ny struct för att spara manuella tider
-type ManualTime struct {
-	Chip     string    `json:"chip"`
-	Time     time.Time `json:"time"`
-	RaceName string    `json:"raceName"`
 }
 
 // Funktion för att spara manuella tider
@@ -230,18 +76,6 @@ func loadManualTimes(raceName string) ([]ManualTime, error) {
 	err = json.NewDecoder(file).Decode(&times)
 	return times, err
 }
-
-// Lägg till denna struct och variabler i början av filen
-type Logger struct {
-	file   *os.File
-	logger *log.Logger
-	mu     sync.Mutex
-}
-
-var (
-	appLogger *Logger
-	once      sync.Once
-)
 
 // Ersätt den gamla logToFile med dessa nya funktioner
 func initLogger() (*Logger, error) {
@@ -279,21 +113,6 @@ func (l *Logger) Log(format string, v ...interface{}) {
 
 	l.logger.Printf(format, v...)
 }
-
-// Lägg till en global variabel för att hålla aktiva söktermer per fönster
-var activeSearches = make(map[string]string)
-
-// Lägg till denna struct i början av filen
-type ResultWindow struct {
-	currentResults  []ChipResult
-	originalResults []ChipResult
-	window          fyne.Window
-	table           *widget.Table
-	searchEntry     *widget.Entry
-}
-
-// Lägg till en global map för att hålla alla öppna resultatfönster
-var openResultWindows = make(map[string]*ResultWindow)
 
 // Först, skapa en funktion som uppdaterar alla UI-komponenter
 func updateAllUI(race *Race, races []Race, index int, updateMainWindow func(), appState *AppState) {
@@ -356,7 +175,7 @@ func toggleLiveUpdate(race *Race, races []Race, index int, updateUI func(), appS
 		if _, exists := appState.stopWatchers[race.Name]; exists {
 			return
 		}
-		stopWatcher, err := createFileWatcher(*race, races, index, nil, func() {
+		stopWatcher, err := CreateFileWatcher(*race, races, index, nil, func() {
 			updateAllUI(race, races, index, updateUI, appState)
 		}, appState)
 		if err != nil {
@@ -689,52 +508,16 @@ func showResults(resultTable *widget.Table, race Race, races []Race, index int, 
 	appState.AddResultWindow(windowID, rw)
 }
 
-// Uppdatera createFileWatcher för att hantera både huvudfönster och resultatfönster
-func createFileWatcher(race Race, races []Race, index int, window fyne.Window, updateUI func(), appState *AppState) (func(), error) {
-	return watchFile(race.ResultsFile, race.Name, func() {
-		getLogger().Log("Processar resultat för lopp: %s", race.Name)
-
-		// Hämta nya resultat
-		newResults := getAllResults(race)
-		getLogger().Log("Hämtade %d nya resultat", len(newResults))
-
-		// Uppdatera resultatfönstret om det är öppet
-		windowID := fmt.Sprintf("results_%s", race.Name)
-		if rw, exists := appState.GetResultWindow(windowID); exists {
-			getLogger().Log("Uppdaterar öppet resultatfönster för %s", race.Name)
-
-			// Uppdatera data
-			rw.originalResults = newResults
-
-			// Uppdatera currentResults med hänsyn till sökning
-			if rw.searchEntry != nil && rw.searchEntry.Text != "" {
-				rw.currentResults = updateResults(newResults, rw.searchEntry.Text)
-			} else {
-				rw.currentResults = newResults
-			}
-
-			// Uppdatera tabellen
-			if rw.table != nil {
-				// Uppdatera längdfunktionen
-				rw.table.Length = func() (int, int) {
-					return len(rw.currentResults) + 1, 3
-				}
-				rw.table.Refresh()
-				getLogger().Log("Uppdaterade tabell med %d resultat", len(rw.currentResults))
-			}
-		}
-
-		// Spara de nya resultaten i cache
-		if err := cacheResults(race.Name, newResults); err != nil {
-			getLogger().Log("Fel vid cachning av resultat: %v", err)
-		}
-
-		// Uppdatera huvudfönstret
-		updateUI()
-	})
-}
-
 func main() {
+	// Initiera logger
+	appLogger = getLogger()
+
+	// Initiera tom datastruktur om filen inte finns
+	if err := initializeEmptyDataIfNeeded(); err != nil {
+		appLogger.Log("Fel vid initiering av data: %v", err)
+		return
+	}
+
 	myApp := app.NewWithID("se.tidtagning.app")
 	window := myApp.NewWindow("Tidtagning")
 
@@ -864,98 +647,6 @@ func main() {
 	window.ShowAndRun()
 }
 
-func processRaceResults(filename string, race Race, races []Race, index int) *widget.Table {
-	// Hämta resultaten
-	results := getAllResults(race)
-
-	// Skapa tabellen
-	table := widget.NewTable(
-		func() (int, int) {
-			return len(results) + 1, 3
-		},
-		func() fyne.CanvasObject {
-			return widget.NewLabel("")
-		},
-		func(id widget.TableCellID, cell fyne.CanvasObject) {
-			label := cell.(*widget.Label)
-
-			if id.Row == 0 {
-				// Rubrikrad
-				switch id.Col {
-				case 0:
-					label.SetText("Startnr")
-				case 1:
-					label.SetText("Tid")
-				case 2:
-					label.SetText("Status")
-				}
-				label.TextStyle = fyne.TextStyle{Bold: true}
-			} else if id.Row <= len(results) {
-				result := results[id.Row-1]
-				switch id.Col {
-				case 0:
-					label.SetText(result.Chip)
-				case 1:
-					minutes := int(result.Duration.Minutes())
-					seconds := int(result.Duration.Seconds()) % 60
-					if minutes >= 60 {
-						hours := minutes / 60
-						minutes = minutes % 60
-						label.SetText(fmt.Sprintf("%02d:%02d:%02d", hours, minutes, seconds))
-					} else {
-						label.SetText(fmt.Sprintf("%02d:%02d", minutes, seconds))
-					}
-				case 2:
-					if result.Invalid {
-						label.SetText("Felaktig")
-					} else {
-						label.SetText("OK")
-					}
-				}
-
-				if result.Invalid {
-					label.TextStyle = fyne.TextStyle{Italic: true}
-				} else {
-					label.TextStyle = fyne.TextStyle{}
-				}
-			}
-		})
-
-	table.SetColumnWidth(0, 150)
-	table.SetColumnWidth(1, 150)
-	table.SetColumnWidth(2, 150)
-
-	return table
-}
-
-// Hjälpfunktion för att formatera resultat
-func formatResults(race Race, results []ChipResult) string {
-	var result strings.Builder
-	result.WriteString(fmt.Sprintf("Resultat för %s\n", race.Name))
-	result.WriteString(fmt.Sprintf("Startade: %s\n", race.StartTime.Format("2006-01-02 15:04")))
-	result.WriteString(fmt.Sprintf("Minsta tid: %d:%02d\n\n",
-		int(race.MinTime.Minutes()),
-		int(race.MinTime.Seconds())%60))
-	result.WriteString("Startnr\tTid\n")
-	result.WriteString("--------------------\n")
-
-	for _, st := range results {
-		minutes := int(st.Duration.Minutes())
-		seconds := int(st.Duration.Seconds()) % 60
-		if minutes >= 60 {
-			hours := minutes / 60
-			minutes = minutes % 60
-			result.WriteString(fmt.Sprintf("%s\t%02d:%02d:%02d\n",
-				st.Chip, hours, minutes, seconds))
-		} else {
-			result.WriteString(fmt.Sprintf("%s\t%02d:%02d\n",
-				st.Chip, minutes, seconds))
-		}
-	}
-
-	return result.String()
-}
-
 // Spara/läsa lopp
 func saveRaces(races []Race) error {
 	file, err := os.Create("races.json")
@@ -992,143 +683,6 @@ func cacheResults(raceName string, results []ChipResult) error {
 	defer file.Close()
 
 	return json.NewEncoder(file).Encode(results)
-}
-
-func loadCachedResults(raceName string) ([]ChipResult, error) {
-	file, err := os.Open(fmt.Sprintf("results_%s.json", raceName))
-	if err != nil {
-		if os.IsNotExist(err) {
-			return []ChipResult{}, nil
-		}
-		return nil, err
-	}
-	defer file.Close()
-
-	var results []ChipResult
-	err = json.NewDecoder(file).Decode(&results)
-	return results, err
-}
-
-func showEditRaceForm(race Race, index int, races []Race, app fyne.App, parentWindow fyne.Window, updateUI func()) {
-	editWindow := app.NewWindow("Redigera lopp")
-
-	nameEntry := widget.NewEntry()
-	nameEntry.SetText(race.Name)
-	nameEntry.Resize(fyne.NewSize(300, 40))
-
-	dateEntry := widget.NewEntry()
-	dateEntry.SetText(race.StartTime.Format("2006-01-02"))
-	dateEntry.Resize(fyne.NewSize(300, 40))
-
-	timeEntry := widget.NewEntry()
-	timeEntry.SetText(race.StartTime.Format("15:04"))
-	timeEntry.Resize(fyne.NewSize(300, 40))
-
-	minTimeEntry := widget.NewEntry()
-	minutes := int(race.MinTime.Minutes())
-	seconds := int(race.MinTime.Seconds()) % 60
-	minTimeEntry.SetText(fmt.Sprintf("%02d:%02d", minutes, seconds))
-	minTimeEntry.Resize(fyne.NewSize(300, 40))
-
-	var chipsList strings.Builder
-	for chip := range race.Chips {
-		chipsList.WriteString(chip + "\n")
-	}
-	chipsEntry := widget.NewMultiLineEntry()
-	chipsEntry.SetText(chipsList.String())
-	chipsEntry.Resize(fyne.NewSize(300, 200))
-
-	// Skapa knappar
-	saveButton := widget.NewButton("Spara", func() {
-		// Parsa minimitid
-		minTimeParts := strings.Split(minTimeEntry.Text, ":")
-		var minTime time.Duration
-		if len(minTimeParts) == 2 {
-			minutes, _ := strconv.Atoi(minTimeParts[0])
-			seconds, _ := strconv.Atoi(minTimeParts[1])
-			minTime = time.Duration(minutes)*time.Minute + time.Duration(seconds)*time.Second
-		}
-
-		dateTime := dateEntry.Text + " " + timeEntry.Text
-		startTime, err := time.Parse("2006-01-02 15:04", dateTime)
-		if err != nil {
-			dialog.ShowError(fmt.Errorf("Ogiltigt datum eller tid: %v", err), editWindow)
-			return
-		}
-
-		chips := make(map[string]bool)
-		for _, chip := range strings.Split(chipsEntry.Text, "\n") {
-			chip = strings.TrimSpace(chip)
-			if chip != "" {
-				chips[chip] = true
-			}
-		}
-
-		// Uppdatera loppet
-		races[index] = Race{
-			Name:         nameEntry.Text,
-			StartTime:    startTime,
-			MinTime:      minTime,
-			Chips:        chips,
-			InvalidTimes: race.InvalidTimes,
-			LiveUpdate:   race.LiveUpdate,
-		}
-
-		// Ta bort cachade resultat eftersom loppet har ändrats
-		os.Remove(fmt.Sprintf("results_%s.json", race.Name))
-
-		updateUI()
-		editWindow.Close()
-	})
-
-	deleteButton := widget.NewButton("Ta bort lopp", func() {
-		dialog.ShowConfirm("Ta bort lopp",
-			"Är du säker på att du vill ta bort detta lopp?",
-			func(remove bool) {
-				if remove {
-					// Ta bort loppet från races slice
-					races = append(races[:index], races[index+1:]...)
-					// Ta bort cachade resultat
-					os.Remove(fmt.Sprintf("results_%s.json", race.Name))
-					// Spara races.json INNAN vi uppdaterar UI
-					saveRaces(races)
-					// Uppdatera UI
-					updateUI()
-					editWindow.Close()
-				}
-			}, editWindow)
-	})
-	cancelButton := widget.NewButton("Avbryt", func() {
-		editWindow.Close()
-	})
-
-	// Skapa formuläret
-	form := &widget.Form{
-		Items: []*widget.FormItem{
-			{Text: "Namn", Widget: nameEntry},
-			{Text: "Datum", Widget: dateEntry},
-			{Text: "Starttid", Widget: timeEntry},
-			{Text: "Minsta tid", Widget: minTimeEntry},
-			{Text: "Startnummer", Widget: chipsEntry},
-		},
-	}
-
-	// Skapa layout
-	buttons := container.NewHBox(saveButton, deleteButton, cancelButton)
-	content := container.NewVBox(form, buttons)
-
-	editWindow.SetContent(content)
-	editWindow.Resize(fyne.NewSize(600, 900))
-	editWindow.CenterOnScreen()
-	editWindow.Show()
-}
-
-// Större fildialog
-func showLargeFileDialog(callback func(fyne.URIReadCloser, error), window fyne.Window) {
-	d := dialog.NewFileOpen(callback, window)
-	// Sätt storlek direkt på dialogen
-	d.Resize(fyne.NewSize(800, 600))
-	d.Show()
 }
 
 // Hitta nästa giltiga tid för ett chip
@@ -1521,8 +1075,31 @@ func makeRaceListItem(race Race, races []Race, index int, app fyne.App, updateUI
 					appState.RemoveStopWatcher(race.Name)
 
 					// Ta bort loppet från slicen
-					races = append(races[:index], races[index+1:]...)
-					saveRaces(races)
+					// Läs in den aktuella listan med lopp
+					currentRaces, err := loadRaces()
+					if err != nil {
+						dialog.ShowError(err, app.Driver().AllWindows()[0])
+						return
+					}
+
+					// Hitta och ta bort rätt lopp baserat på namn och starttid
+					for i, r := range currentRaces {
+						if r.Name == race.Name && r.StartTime.Equal(race.StartTime) {
+							currentRaces = append(currentRaces[:i], currentRaces[i+1:]...)
+							break
+						}
+					}
+
+					// Spara den uppdaterade listan
+					if err := saveRaces(currentRaces); err != nil {
+						dialog.ShowError(err, app.Driver().AllWindows()[0])
+						return
+					}
+
+					// Ta bort cachade resultat
+					os.Remove(fmt.Sprintf("results_%s.json", race.Name))
+
+					// Uppdatera UI med den nya listan av lopp
 					updateUI()
 				}
 			}, app.Driver().AllWindows()[0])
@@ -1542,69 +1119,29 @@ func makeRaceListItem(race Race, races []Race, index int, app fyne.App, updateUI
 	)
 }
 
-// Lägg till denna struct nära början av filen
-type AppState struct {
-	mu             sync.RWMutex
-	stopWatchers   map[string]func()
-	activeSearches map[string]string
-	resultWindows  map[string]*ResultWindow
-	logger         *Logger
-}
-
-func NewAppState() *AppState {
-	return &AppState{
-		stopWatchers:   make(map[string]func()),
-		activeSearches: make(map[string]string),
-		resultWindows:  make(map[string]*ResultWindow),
-		logger:         getLogger(),
+func initializeEmptyDataIfNeeded() error {
+	// Grundläggande datastruktur för appen
+	initialData := struct {
+		Races []Race `json:"races"`
+	}{
+		Races: []Race{},
 	}
-}
 
-// Metoder för att hantera stopWatchers
-func (s *AppState) AddStopWatcher(raceName string, stopFunc func()) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.stopWatchers[raceName] = stopFunc
-}
+	// Kontrollera om filen finns
+	if _, err := os.Stat("races.json"); os.IsNotExist(err) {
+		// Filen finns inte, skapa en ny med tom datastruktur
+		jsonData, err := json.MarshalIndent(initialData, "", "    ")
+		if err != nil {
+			return fmt.Errorf("kunde inte marshalla initial data: %v", err)
+		}
 
-func (s *AppState) RemoveStopWatcher(raceName string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	if stopFunc, exists := s.stopWatchers[raceName]; exists {
-		stopFunc()
-		delete(s.stopWatchers, raceName)
+		err = os.WriteFile("races.json", jsonData, 0644)
+		if err != nil {
+			return fmt.Errorf("kunde inte skriva initial data till fil: %v", err)
+		}
+
+		getLogger().Log("Skapade ny races.json med tom datastruktur")
 	}
-}
 
-// Metoder för att hantera activeSearches
-func (s *AppState) SetActiveSearch(windowID, searchText string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.activeSearches[windowID] = searchText
-}
-
-func (s *AppState) GetActiveSearch(windowID string) string {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	return s.activeSearches[windowID]
-}
-
-// Metoder för att hantera resultWindows
-func (s *AppState) AddResultWindow(windowID string, rw *ResultWindow) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	s.resultWindows[windowID] = rw
-}
-
-func (s *AppState) RemoveResultWindow(windowID string) {
-	s.mu.Lock()
-	defer s.mu.Unlock()
-	delete(s.resultWindows, windowID)
-}
-
-func (s *AppState) GetResultWindow(windowID string) (*ResultWindow, bool) {
-	s.mu.RLock()
-	defer s.mu.RUnlock()
-	rw, exists := s.resultWindows[windowID]
-	return rw, exists
+	return nil
 }
