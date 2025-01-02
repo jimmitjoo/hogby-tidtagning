@@ -420,7 +420,7 @@ func makeRaceListItem(race Race, races []Race, index int, app fyne.App, updateUI
 
 	participantsLabel := widget.NewLabel(fmt.Sprintf("Anmälda: %d", len(race.Chips)))
 
-	finishersLabel := widget.NewLabel(fmt.Sprintf("Antal i mål: %d", len(results)))
+	finishersLabel := widget.NewLabel(fmt.Sprintf("Antal i mål: %d", len(results)-len(race.InvalidTimes)))
 
 	buttons := raceListButtons(race, races, index, app, updateUI, appState)
 
