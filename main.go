@@ -147,7 +147,7 @@ func main() {
 					processRaceResults(race.ResultsFile)
 				} else {
 					// Annars visa fil-dialog
-					dialog.ShowFileOpen(func(reader fyne.URIReadCloser, err error) {
+					showLargeFileDialog(func(reader fyne.URIReadCloser, err error) {
 						if err != nil {
 							dialog.ShowError(err, window)
 							return
@@ -170,7 +170,7 @@ func main() {
 			})
 
 			changeFileButton := widget.NewButton("Välj ny fil", func() {
-				dialog.ShowFileOpen(func(reader fyne.URIReadCloser, err error) {
+				showLargeFileDialog(func(reader fyne.URIReadCloser, err error) {
 					if err != nil {
 						dialog.ShowError(err, window)
 						return
@@ -567,4 +567,12 @@ func showEditRaceForm(race Race, index int, races []Race, app fyne.App, parentWi
 	editWindow.Resize(fyne.NewSize(600, 900))
 	editWindow.CenterOnScreen()
 	editWindow.Show()
+}
+
+// Lägg till denna hjälpfunktion
+func showLargeFileDialog(callback func(fyne.URIReadCloser, error), window fyne.Window) {
+	d := dialog.NewFileOpen(callback, window)
+	// Sätt storlek direkt på dialogen
+	d.Resize(fyne.NewSize(800, 600))
+	d.Show()
 }
