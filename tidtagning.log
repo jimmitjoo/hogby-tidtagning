@@ -1,38 +1,94 @@
-[2025-01-02 15:54:48] Fil uppdaterad för lopp: Sylvester 10km män
-[2025-01-02 15:54:48] Processar resultat för lopp: Sylvester 10km män
-[2025-01-02 15:55:09] Fil uppdaterad för lopp: Sylvester 10km män
-[2025-01-02 15:55:09] Processar resultat för lopp: Sylvester 10km män
-[2025-01-02 15:55:10] Fil uppdaterad för lopp: Sylvester 10km kvinnor
-[2025-01-02 15:55:10] Processar resultat för lopp: Sylvester 10km kvinnor
-[2025-01-02 15:59:48] Fil uppdaterad för lopp: Sylvester 10km kvinnor
-[2025-01-02 15:59:48] Processar resultat för lopp: Sylvester 10km kvinnor
-[2025-01-02 15:59:48] Fil uppdaterad för lopp: Sylvester 10km män
-[2025-01-02 15:59:48] Processar resultat för lopp: Sylvester 10km män
-[2025-01-02 16:02:11] Fil uppdaterad för lopp: Sylvester 10km män
-[2025-01-02 16:02:11] Processar resultat för lopp: Sylvester 10km män
-[2025-01-02 16:02:11] Fil uppdaterad för lopp: Sylvester 10km kvinnor
-[2025-01-02 16:02:11] Processar resultat för lopp: Sylvester 10km kvinnor
-[2025-01-02 16:02:27] Fil uppdaterad för lopp: Sylvester 10km män
-[2025-01-02 16:02:27] Processar resultat för lopp: Sylvester 10km män
-[2025-01-02 16:02:27] Fil uppdaterad för lopp: Sylvester 10km kvinnor
-[2025-01-02 16:02:27] Processar resultat för lopp: Sylvester 10km kvinnor
-[2025-01-02 16:03:09] Fil uppdaterad för lopp: Sylvester 10km män
-[2025-01-02 16:03:09] Processar resultat för lopp: Sylvester 10km män
-[2025-01-02 16:03:09] Fil uppdaterad för lopp: Sylvester 10km kvinnor
-[2025-01-02 16:03:09] Processar resultat för lopp: Sylvester 10km kvinnor
-[2025-01-02 16:03:38] Fil uppdaterad för lopp: Sylvester 10km män
-[2025-01-02 16:03:38] Processar resultat för lopp: Sylvester 10km män
-[2025-01-02 16:03:38] Fil uppdaterad för lopp: Sylvester 10km kvinnor
-[2025-01-02 16:03:38] Processar resultat för lopp: Sylvester 10km kvinnor
-[2025-01-02 16:10:09] Fil uppdaterad för lopp: Sylvester 10km kvinnor
-[2025-01-02 16:10:09] Processar resultat för lopp: Sylvester 10km kvinnor
-[2025-01-02 16:11:09] Fil uppdaterad för lopp: Sylvester 10km män
-[2025-01-02 16:11:09] Processar resultat för lopp: Sylvester 10km män
-[2025-01-02 16:11:09] Fil uppdaterad för lopp: Sylvester 10km kvinnor
-[2025-01-02 16:11:09] Processar resultat för lopp: Sylvester 10km kvinnor
-[2025-01-02 16:13:20] Fil uppdaterad för lopp: Sylvester 10km män
-[2025-01-02 16:13:20] Processar resultat för lopp: Sylvester 10km män
-[2025-01-02 16:13:29] Fil uppdaterad för lopp: Sylvester 10km män
-[2025-01-02 16:13:29] Processar resultat för lopp: Sylvester 10km män
-[2025-01-02 16:13:51] Fil uppdaterad för lopp: Sylvester 10km män
-[2025-01-02 16:13:51] Processar resultat för lopp: Sylvester 10km män
+2025/01/02 18:56:43 Fel vid start av övervakning: ingen fil att övervaka
+2025/01/02 18:56:43 Fel vid start av övervakning: ingen fil att övervaka
+2025/01/02 19:14:42 Hämtar alla resultat för lopp: Sylvester 10km män
+2025/01/02 19:14:42 Läste in 0 manuella tider
+2025/01/02 19:14:42 Returnerar totalt 0 resultat
+2025/01/02 19:14:44 Hämtar alla resultat för lopp: Sylvester 10km män
+2025/01/02 19:14:44 Läste in 0 manuella tider
+2025/01/02 19:14:44 Returnerar totalt 0 resultat
+2025/01/02 19:14:44 Fel vid start av övervakning: ingen fil att övervaka
+2025/01/02 19:14:44 Hämtar alla resultat för lopp: Sylvester 10km män
+2025/01/02 19:14:44 Läste in 0 manuella tider
+2025/01/02 19:14:44 Returnerar totalt 0 resultat
+2025/01/02 19:14:48 Fel vid start av övervakning: ingen fil att övervaka
+2025/01/02 19:16:26 Hämtar alla resultat för lopp: Sylvester 10km män
+2025/01/02 19:16:26 Läste in 0 manuella tider
+2025/01/02 19:16:26 Läste in 260 CSV-resultat
+2025/01/02 19:16:26 Returnerar totalt 260 resultat
+2025/01/02 19:30:19 Skapade ny races.json med tom datastruktur
+2025/01/02 19:30:54 Hämtar alla resultat för lopp: Test
+2025/01/02 19:30:54 Läste in 0 manuella tider
+2025/01/02 19:30:54 Läste in 260 CSV-resultat
+2025/01/02 19:30:54 Returnerar totalt 260 resultat
+2025/01/02 19:31:14 Hämtar alla resultat för lopp: Test
+2025/01/02 19:31:14 Läste in 0 manuella tider
+2025/01/02 19:31:14 Läste in 260 CSV-resultat
+2025/01/02 19:31:14 Returnerar totalt 260 resultat
+2025/01/02 19:31:14 Startar övervakning av fil: /Users/jimmiejohansson/Desktop/192.168.1.241.csv för lopp: Test
+2025/01/02 19:31:19 Stoppar övervakning av fil: /Users/jimmiejohansson/Desktop/192.168.1.241.csv för lopp: Test
+2025/01/02 19:31:41 Hämtar alla resultat för lopp: Test
+2025/01/02 19:31:41 Läste in 0 manuella tider
+2025/01/02 19:31:41 Läste in 260 CSV-resultat
+2025/01/02 19:31:41 Returnerar totalt 260 resultat
+2025/01/02 19:31:43 Hämtar alla resultat för lopp: Test
+2025/01/02 19:31:43 Läste in 0 manuella tider
+2025/01/02 19:31:43 Läste in 260 CSV-resultat
+2025/01/02 19:31:43 Returnerar totalt 260 resultat
+2025/01/02 19:31:43 Startar övervakning av fil: /Users/jimmiejohansson/Desktop/192.168.1.241.csv för lopp: Test
+2025/01/02 19:31:45 Hämtar alla resultat för lopp: Test
+2025/01/02 19:31:45 Läste in 0 manuella tider
+2025/01/02 19:31:45 Läste in 260 CSV-resultat
+2025/01/02 19:31:45 Returnerar totalt 260 resultat
+2025/01/02 19:31:45 Stoppar övervakning av fil: /Users/jimmiejohansson/Desktop/192.168.1.241.csv för lopp: Test
+2025/01/02 19:32:23 Startar övervakning av fil: /Users/jimmiejohansson/Desktop/192.168.1.241.csv för lopp: Test
+2025/01/02 19:32:28 Stoppar övervakning av fil: /Users/jimmiejohansson/Desktop/192.168.1.241.csv för lopp: Test
+2025/01/02 19:32:28 Startar övervakning av fil: /Users/jimmiejohansson/Desktop/192.168.1.241.csv för lopp: Test
+2025/01/02 19:36:40 Stoppar övervakning av fil: /Users/jimmiejohansson/Desktop/192.168.1.241.csv för lopp: Test
+2025/01/02 19:36:40 Startar övervakning av fil: /Users/jimmiejohansson/Desktop/192.168.1.241.csv för lopp: Test
+2025/01/02 19:36:45 Hämtar alla resultat för lopp: Test
+2025/01/02 19:36:45 Läste in 0 manuella tider
+2025/01/02 19:36:45 Läste in 260 CSV-resultat
+2025/01/02 19:36:45 Returnerar totalt 260 resultat
+2025/01/02 19:38:17 Hämtar alla resultat för lopp: Test
+2025/01/02 19:38:17 Läste in 0 manuella tider
+2025/01/02 19:38:17 Läste in 260 CSV-resultat
+2025/01/02 19:38:17 Returnerar totalt 260 resultat
+2025/01/02 19:38:37 Hämtar alla resultat för lopp: Test
+2025/01/02 19:38:37 Läste in 0 manuella tider
+2025/01/02 19:38:37 Läste in 260 CSV-resultat
+2025/01/02 19:38:37 Returnerar totalt 260 resultat
+2025/01/02 19:38:44 Startar övervakning av fil: /Users/jimmiejohansson/Desktop/192.168.1.241.csv för lopp: Test
+2025/01/02 19:38:58 Hämtar alla resultat för lopp: Test
+2025/01/02 19:38:58 Läste in 0 manuella tider
+2025/01/02 19:38:58 Läste in 260 CSV-resultat
+2025/01/02 19:38:58 Returnerar totalt 260 resultat
+2025/01/02 19:39:25 Hämtar alla resultat för lopp: Test
+2025/01/02 19:39:25 Läste in 0 manuella tider
+2025/01/02 19:39:25 Läste in 260 CSV-resultat
+2025/01/02 19:39:25 Returnerar totalt 260 resultat
+2025/01/02 20:03:57 Hämtar alla resultat för lopp: Test
+2025/01/02 20:03:57 Läste in 0 manuella tider
+2025/01/02 20:03:57 Läste in 260 CSV-resultat
+2025/01/02 20:03:57 Returnerar totalt 260 resultat
+2025/01/02 20:08:51 Hämtar alla resultat för lopp: Test
+2025/01/02 20:08:51 Läste in 0 manuella tider
+2025/01/02 20:08:51 Läste in 260 CSV-resultat
+2025/01/02 20:08:51 Returnerar totalt 260 resultat
+2025/01/02 20:09:14 Hämtar alla resultat för lopp: Test
+2025/01/02 20:09:14 Läste in 0 manuella tider
+2025/01/02 20:09:14 Läste in 260 CSV-resultat
+2025/01/02 20:09:14 Returnerar totalt 260 resultat
+2025/01/02 20:09:35 Hämtar alla resultat för lopp: Test
+2025/01/02 20:09:35 Läste in 0 manuella tider
+2025/01/02 20:09:35 Läste in 260 CSV-resultat
+2025/01/02 20:09:35 Returnerar totalt 260 resultat
+2025/01/02 20:09:35 Startar övervakning av fil: /Users/jimmiejohansson/Desktop/192.168.1.241.csv för lopp: Test
+2025/01/02 20:09:36 Hämtar alla resultat för lopp: Test
+2025/01/02 20:09:36 Läste in 0 manuella tider
+2025/01/02 20:09:36 Läste in 260 CSV-resultat
+2025/01/02 20:09:36 Returnerar totalt 260 resultat
+2025/01/02 20:09:46 Stoppar övervakning av fil: /Users/jimmiejohansson/Desktop/192.168.1.241.csv för lopp: Test
+2025/01/02 20:09:46 Hämtar alla resultat för lopp: Test
+2025/01/02 20:09:46 Läste in 0 manuella tider
+2025/01/02 20:09:46 Läste in 260 CSV-resultat
+2025/01/02 20:09:46 Returnerar totalt 260 resultat

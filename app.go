@@ -1,13 +1,33 @@
 package main
 
-import "sync"
+import (
+	"encoding/json"
+	"fmt"
+	"os"
+	"sync"
+)
 
 type AppState struct {
 	mu             sync.RWMutex
 	stopWatchers   map[string]func()
 	activeSearches map[string]string
 	resultWindows  map[string]*ResultWindow
+	raceFileSrc    string
 	logger         *Logger
+}
+
+var (
+	appLogger *Logger
+	once      sync.Once
+)
+
+func NewAppState() *AppState {
+	return &AppState{
+		stopWatchers:   make(map[string]func()),
+		activeSearches: make(map[string]string),
+		resultWindows:  make(map[string]*ResultWindow),
+		logger:         getLogger(),
+	}
 }
 
 func (s *AppState) AddStopWatcher(raceName string, stopFunc func()) {
@@ -56,4 +76,31 @@ func (s *AppState) GetResultWindow(windowID string) (*ResultWindow, bool) {
 	defer s.mu.RUnlock()
 	rw, exists := s.resultWindows[windowID]
 	return rw, exists
+}
+
+func initializeEmptyDataIfNeeded() error {
+	// Grundläggande datastruktur för appen
+	initialData := struct {
+		Races []Race `json:"races"`
+	}{
+		Races: []Race{},
+	}
+
+	// Kontrollera om filen finns
+	if _, err := os.Stat("races.json"); os.IsNotExist(err) {
+		// Filen finns inte, skapa en ny med tom datastruktur
+		jsonData, err := json.MarshalIndent(initialData, "", "    ")
+		if err != nil {
+			return fmt.Errorf("kunde inte marshalla initial data: %v", err)
+		}
+
+		err = os.WriteFile("races.json", jsonData, 0644)
+		if err != nil {
+			return fmt.Errorf("kunde inte skriva initial data till fil: %v", err)
+		}
+
+		getLogger().Log("Skapade ny races.json med tom datastruktur")
+	}
+
+	return nil
 }
