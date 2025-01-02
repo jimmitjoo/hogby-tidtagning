@@ -775,6 +775,11 @@ func showResults(resultTable *widget.Table, race Race, races []Race, index int, 
 	tableContainer := container.NewScroll(table)
 	tableContainer.SetMinSize(fyne.NewSize(600, 600))
 
+	// Lägg till knapp för manuell tidsinmatning
+	addTimeButton := widget.NewButton("Lägg till tid", func() {
+		showAddTimeDialog(race, races, index, &currentResults, &originalResults, table, resultWindow)
+	})
+
 	content := container.NewVBox(
 		widget.NewLabel(fmt.Sprintf("Resultat för %s", race.Name)),
 		widget.NewLabel(fmt.Sprintf("Startade: %s", race.StartTime.Format("2006-01-02 15:04"))),
@@ -782,6 +787,7 @@ func showResults(resultTable *widget.Table, race Race, races []Race, index int, 
 			int(race.MinTime.Minutes()),
 			int(race.MinTime.Seconds())%60)),
 		searchEntry,
+		addTimeButton,
 		widget.NewLabel("Klicka på en rad för att markera/avmarkera den som felaktig"),
 		tableContainer,
 	)
@@ -842,4 +848,107 @@ func findNextValidTime(filename string, race Race, invalidTime time.Time, chip s
 	}
 
 	return nextValidTime, foundValid
+}
+
+// Manuell tidsinmatning
+func showAddTimeDialog(race Race, races []Race, index int, currentResults *[]ChipResult, originalResults *[]ChipResult, table *widget.Table, window fyne.Window) {
+	chipEntry := widget.NewEntry()
+	chipEntry.SetPlaceHolder("Startnummer")
+
+	timeEntry := widget.NewEntry()
+	timeEntry.SetPlaceHolder("Tid (HH:MM:SS)")
+	timeEntry.Text = "00:00:00"
+
+	dialog.ShowForm("Lägg till tid", "Lägg till", "Avbryt", []*widget.FormItem{
+		{Text: "Startnummer", Widget: chipEntry},
+		{Text: "Tid", Widget: timeEntry},
+	}, func(submitted bool) {
+		if !submitted {
+			return
+		}
+
+		// Validera chip
+		chip := strings.TrimSpace(chipEntry.Text)
+		if chip == "" {
+			dialog.ShowError(fmt.Errorf("Startnummer måste anges"), window)
+			return
+		}
+		if !race.Chips[chip] {
+			dialog.ShowError(fmt.Errorf("Startnummer %s finns inte registrerat i loppet", chip), window)
+			return
+		}
+
+		// Parsa tiden
+		timeParts := strings.Split(timeEntry.Text, ":")
+		if len(timeParts) != 3 {
+			dialog.ShowError(fmt.Errorf("Ogiltig tid, använd format HH:MM:SS"), window)
+			return
+		}
+
+		hours, err1 := strconv.Atoi(timeParts[0])
+		minutes, err2 := strconv.Atoi(timeParts[1])
+		seconds, err3 := strconv.Atoi(timeParts[2])
+		if err1 != nil || err2 != nil || err3 != nil {
+			dialog.ShowError(fmt.Errorf("Ogiltig tid"), window)
+			return
+		}
+
+		// Skapa tidpunkt baserat på loppets startdatum
+		recordTime := race.StartTime.Add(time.Duration(hours)*time.Hour +
+			time.Duration(minutes)*time.Minute +
+			time.Duration(seconds)*time.Second)
+
+		// Kontrollera att tiden är efter starttiden och uppfyller minimitiden
+		duration := recordTime.Sub(race.StartTime)
+		if duration < race.MinTime {
+			dialog.ShowError(fmt.Errorf("Tiden är kortare än minimitiden"), window)
+			return
+		}
+
+		// Markera alla existerande tider för detta chip som ogiltiga
+		for i := range *currentResults {
+			if (*currentResults)[i].Chip == chip {
+				(*currentResults)[i].Invalid = true
+				timeKey := makeInvalidTimeKey((*currentResults)[i].Chip, (*currentResults)[i].Time)
+				if race.InvalidTimes == nil {
+					race.InvalidTimes = make(map[string]bool)
+				}
+				race.InvalidTimes[timeKey] = true
+			}
+		}
+		for i := range *originalResults {
+			if (*originalResults)[i].Chip == chip {
+				(*originalResults)[i].Invalid = true
+				timeKey := makeInvalidTimeKey((*originalResults)[i].Chip, (*originalResults)[i].Time)
+				race.InvalidTimes[timeKey] = true
+			}
+		}
+
+		// Lägg till det nya resultatet
+		newResult := ChipResult{
+			Chip:     chip,
+			Time:     recordTime,
+			Duration: duration,
+			Invalid:  false,
+		}
+
+		*currentResults = append(*currentResults, newResult)
+		*originalResults = append(*originalResults, newResult)
+
+		// Sortera resultaten
+		sort.Slice(*currentResults, func(i, j int) bool {
+			return (*currentResults)[i].Time.Before((*currentResults)[j].Time)
+		})
+		sort.Slice(*originalResults, func(i, j int) bool {
+			return (*originalResults)[i].Time.Before((*originalResults)[j].Time)
+		})
+
+		// Spara ändringarna
+		races[index] = race
+		saveRaces(races)
+		cacheResults(race.Name, *originalResults)
+
+		// Uppdatera tabellen
+		table.Refresh()
+	}, window)
 }
