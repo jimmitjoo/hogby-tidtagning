@@ -2,16 +2,21 @@ package main
 
 import (
 	"fmt"
+	"image/color"
+	"os"
+	"sort"
+	"strconv"
+	"strings"
+
 	"fyne.io/fyne/v2"
 	"fyne.io/fyne/v2/canvas"
 	"fyne.io/fyne/v2/container"
 	"fyne.io/fyne/v2/dialog"
 	"fyne.io/fyne/v2/theme"
 	"fyne.io/fyne/v2/widget"
-	"image/color"
-	"os"
-	"sort"
-	"strings"
+
+	"github.com/jimmitjoo/hogby-tidtagning/internal/services/sheets"
+	"github.com/jimmitjoo/hogby-tidtagning/internal/ui/dialogs"
 )
 
 func updateAllUI(race *Race, updateMainWindow func(), appState *AppState) {
@@ -342,18 +347,60 @@ func showResults(resultTable *widget.Table, race Race, races []Race, index int, 
 		showAddTimeDialog(race, races, index, &currentResults, &originalResults, table, resultWindow)
 	})
 
+	// Lägg till exportknapp
+	exportButton := widget.NewButton("Exportera till Google Sheets", func() {
+		if race.SpreadsheetId != "" && race.SheetName != "" {
+			// Använd sparade värden
+			exportToSheets(race, races, index, resultWindow)
+		} else {
+			// Visa dialog för att få värden
+			dialogs.ShowExportDialog(resultWindow, func(spreadsheetId, sheetName string) {
+				// Spara värdena i race
+				race.SpreadsheetId = spreadsheetId
+				race.SheetName = sheetName
+				races[index] = race
+				saveRaces(races)
+
+				exportToSheets(race, races, index, resultWindow)
+			})
+		}
+	})
+
 	content := container.NewVBox(
 		widget.NewLabel(fmt.Sprintf("Resultat för %s", race.Name)),
 		widget.NewLabel(fmt.Sprintf("Startade: %s", race.StartTime.Format("2006-01-02 15:04"))),
-		widget.NewLabel(fmt.Sprintf("Minsta tid: %d:%02d",
+		widget.NewLabel(fmt.Sprintf("Snabbaste tid vi visar: %d:%02d",
 			int(race.MinTime.Minutes()),
 			int(race.MinTime.Seconds())%60)),
-		searchEntry,
-		watchButton,
-		addTimeButton,
-		widget.NewLabel("Klicka på en rad för att markera/avmarkera den som felaktig"),
-		tableContainer,
 	)
+
+	// Lägg till saknade nummer om det är färre än 50
+	missingNumbers := getMissingNumbers(race, originalResults)
+	if len(missingNumbers) > 0 && len(missingNumbers) < 50 {
+		missingLabel := widget.NewLabel("Löpare vi väntar på:")
+		missingLabel.TextStyle = fyne.TextStyle{Bold: true}
+		content.Add(missingLabel)
+
+		// Dela upp numren i rader om 10 nummer per rad
+		var currentRow []string
+		for i, num := range missingNumbers {
+			currentRow = append(currentRow, num)
+			if (i+1)%10 == 0 || i == len(missingNumbers)-1 {
+				content.Add(widget.NewLabel(strings.Join(currentRow, ", ")))
+				currentRow = nil
+			}
+		}
+
+		// Lägg till en separator
+		content.Add(widget.NewSeparator())
+	}
+
+	content.Add(searchEntry)
+	content.Add(watchButton)
+	content.Add(addTimeButton)
+	content.Add(exportButton)
+	content.Add(widget.NewLabel("Klicka på en rad för att markera/avmarkera den som felaktig"))
+	content.Add(tableContainer)
 
 	paddedContent := container.NewPadded(content)
 	resultWindow.SetContent(paddedContent)
@@ -540,4 +587,125 @@ func raceListButtons(race Race, races []Race, index int, app fyne.App, updateUI 
 	// Skapa en container för knapparna
 	buttons := container.NewHBox(resultsButton, fileButton, watchButton, deleteButton)
 	return buttons
+}
+
+// Lägg till denna hjälpfunktion för att hantera exporten
+func exportToSheets(race Race, races []Race, index int, resultWindow fyne.Window) {
+	// Hitta exportknappen och inaktivera den
+	content := resultWindow.Content().(*fyne.Container)
+	var exportButton *widget.Button
+	for _, obj := range content.Objects {
+		if container, ok := obj.(*fyne.Container); ok {
+			for _, containerObj := range container.Objects {
+				if btn, ok := containerObj.(*widget.Button); ok && btn.Text == "Exportera till Google Sheets" {
+					exportButton = btn
+					break
+				}
+			}
+		}
+	}
+	if exportButton != nil {
+		exportButton.Disable()
+		exportButton.SetText("Exporterar...")
+		exportButton.Refresh()
+	}
+
+	// Skapa sheets service med inbyggda credentials och auth callback
+	sheetsService, err := sheets.NewSheetsService("", func(authURL string, onCode func(string) error) {
+		dialogs.ShowAuthDialog(resultWindow, authURL, onCode)
+	})
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("kunde inte skapa Sheets-service: %v", err), resultWindow)
+		if exportButton != nil {
+			exportButton.Enable()
+			exportButton.SetText("Exportera till Google Sheets")
+			exportButton.Refresh()
+		}
+		return
+	}
+
+	// Konvertera resultat till sheets.Result
+	results := getAllResults(race)
+
+	// Skapa en map för att hålla alla tider för varje startnummer
+	chipTimes := make(map[string][]sheets.Result)
+
+	// Samla alla tider per startnummer
+	for _, r := range results {
+		chipTimes[r.Chip] = append(chipTimes[r.Chip], sheets.Result{
+			Chip:     r.Chip,
+			Time:     r.Time,
+			Duration: r.Duration,
+			Invalid:  r.Invalid,
+			Manual:   r.Manual,
+		})
+	}
+
+	// Välj den första giltiga tiden för varje startnummer
+	var sheetsResults []sheets.Result
+	for _, times := range chipTimes {
+		// Sortera tider för detta startnummer efter tidpunkt
+		sort.Slice(times, func(i, j int) bool {
+			return times[i].Time.Before(times[j].Time)
+		})
+
+		// Hitta första giltiga tiden
+		for _, time := range times {
+			if !time.Invalid {
+				sheetsResults = append(sheetsResults, time)
+				break
+			}
+		}
+	}
+
+	// Sortera resultaten efter startnummer
+	sort.Slice(sheetsResults, func(i, j int) bool {
+		ni, _ := strconv.Atoi(sheetsResults[i].Chip)
+		nj, _ := strconv.Atoi(sheetsResults[j].Chip)
+		return ni < nj
+	})
+
+	// Exportera resultaten
+	err = sheetsService.ExportResults(race.SpreadsheetId, race.SheetName, sheetsResults)
+
+	// Återaktivera knappen oavsett om det gick bra eller inte
+	if exportButton != nil {
+		exportButton.Enable()
+		exportButton.SetText("Exportera till Google Sheets")
+		exportButton.Refresh()
+	}
+
+	if err != nil {
+		dialog.ShowError(fmt.Errorf("kunde inte exportera resultat: %v", err), resultWindow)
+		return
+	}
+}
+
+// Lägg till denna hjälpfunktion för att hitta saknade nummer
+func getMissingNumbers(race Race, results []ChipResult) []string {
+	// Skapa en map för att hålla koll på vilka nummer som har tider
+	hasTime := make(map[string]bool)
+	for _, result := range results {
+		if !result.Invalid {
+			hasTime[result.Chip] = true
+		}
+	}
+
+	// Samla alla saknade nummer
+	var missing []string
+	for chip := range race.Chips {
+		if !hasTime[chip] {
+			missing = append(missing, chip)
+		}
+	}
+
+	// Sortera numren numeriskt istället för alfabetiskt
+	sort.Slice(missing, func(i, j int) bool {
+		// Konvertera till nummer för jämförelse
+		ni, _ := strconv.Atoi(missing[i])
+		nj, _ := strconv.Atoi(missing[j])
+		return ni < nj
+	})
+
+	return missing
 }

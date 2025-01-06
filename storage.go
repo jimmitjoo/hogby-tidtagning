@@ -66,7 +66,7 @@ func updateResults(results []ChipResult, searchText string) []ChipResult {
 // Ny funktion som samlar alla resultat
 func getAllResults(race Race) []ChipResult {
 	getLogger().Log("Hämtar alla resultat för lopp: %s", race.Name)
-	results := []ChipResult{}
+	allResults := []ChipResult{}
 
 	// Läs in manuella tider först
 	manualTimes, err := loadManualTimes(race.Name)
@@ -75,7 +75,7 @@ func getAllResults(race Race) []ChipResult {
 			if mt.RaceName == race.Name {
 				duration := mt.Time.Sub(race.StartTime)
 				timeKey := makeInvalidTimeKey(mt.Chip, mt.Time)
-				results = append(results, ChipResult{
+				allResults = append(allResults, ChipResult{
 					Chip:     mt.Chip,
 					Time:     mt.Time,
 					Duration: duration,
@@ -87,46 +87,62 @@ func getAllResults(race Race) []ChipResult {
 		getLogger().Log("Läste in %d manuella tider", len(manualTimes))
 	}
 
-	// Skapa en map för att hålla koll på vilka chip vi redan har
-	processedChips := make(map[string]bool)
-	for _, result := range results {
-		processedChips[result.Chip] = true
-	}
-
 	// Läs in tider från CSV-filen om den finns
 	if race.ResultsFile != "" {
 		csvResults := readCSVResults(race)
-		// Lägg till CSV-resultat som inte redan finns som manuell tid
-		for _, csvResult := range csvResults {
-			if !processedChips[csvResult.Chip] {
-				results = append(results, csvResult)
-				processedChips[csvResult.Chip] = true
-			}
-		}
+		// Lägg till alla CSV-resultat
+		allResults = append(allResults, csvResults...)
 		getLogger().Log("Läste in %d CSV-resultat", len(csvResults))
 	}
 
 	// Sortera alla resultat efter tid
-	sort.Slice(results, func(i, j int) bool {
-		return results[i].Time.Before(results[j].Time)
+	sort.Slice(allResults, func(i, j int) bool {
+		return allResults[i].Time.Before(allResults[j].Time)
 	})
 
-	// Skapa JSON-fil med resultaten
-	jsonData, err := json.Marshal(results)
+	// Skapa en map för att hålla alla tider per startnummer
+	chipTimes := make(map[string][]ChipResult)
+	for _, result := range allResults {
+		chipTimes[result.Chip] = append(chipTimes[result.Chip], result)
+	}
+
+	// Välj alla felaktiga tider plus första giltiga tiden för varje startnummer
+	var filteredResults []ChipResult
+	for _, times := range chipTimes {
+		foundValidTime := false
+		for _, time := range times {
+			if time.Invalid {
+				// Lägg till alla felaktiga tider
+				filteredResults = append(filteredResults, time)
+			} else if !foundValidTime {
+				// Lägg till första giltiga tiden
+				filteredResults = append(filteredResults, time)
+				foundValidTime = true
+			}
+		}
+	}
+
+	// Sortera de filtrerade resultaten efter tid
+	sort.Slice(filteredResults, func(i, j int) bool {
+		return filteredResults[i].Time.Before(filteredResults[j].Time)
+	})
+
+	// Skapa JSON-fil med ALLA resultat (för att behålla historiken)
+	jsonData, err := json.Marshal(allResults)
 	if err != nil {
 		getLogger().Log("Fel vid skapande av JSON: %v", err)
-		return results
+		return filteredResults
 	}
 
 	jsonFilename := fmt.Sprintf("results_%s.json", race.Name)
 	err = os.WriteFile(jsonFilename, jsonData, 0644)
 	if err != nil {
 		getLogger().Log("Fel vid sparande av JSON-fil: %v", err)
-		return results
+		return filteredResults
 	}
 
-	getLogger().Log("Returnerar totalt %d resultat", len(results))
-	return results
+	getLogger().Log("Returnerar totalt %d resultat (av %d totalt)", len(filteredResults), len(allResults))
+	return filteredResults
 }
 
 // Separera CSV-läsningen till egen funktion
@@ -143,7 +159,6 @@ func readCSVResults(race Race) []ChipResult {
 	reader.Comma = '\t'
 	reader.FieldsPerRecord = -1
 
-	chipTimes := make(map[string]time.Time)
 	rowCount := 0
 
 	for {
@@ -172,24 +187,16 @@ func readCSVResults(race Race) []ChipResult {
 		if recordTime.After(race.StartTime) {
 			duration := recordTime.Sub(race.StartTime)
 			if duration >= race.MinTime {
-				if existingTime, exists := chipTimes[chip]; !exists || recordTime.Before(existingTime) {
-					chipTimes[chip] = recordTime
-				}
+				timeKey := makeInvalidTimeKey(chip, recordTime)
+				results = append(results, ChipResult{
+					Chip:     chip,
+					Time:     recordTime,
+					Duration: duration,
+					Invalid:  race.InvalidTimes[timeKey],
+					Manual:   false,
+				})
 			}
 		}
-	}
-
-	// Konvertera chipTimes till resultat
-	for chip, time := range chipTimes {
-		duration := time.Sub(race.StartTime)
-		timeKey := makeInvalidTimeKey(chip, time)
-		results = append(results, ChipResult{
-			Chip:     chip,
-			Time:     time,
-			Duration: duration,
-			Invalid:  race.InvalidTimes[timeKey],
-			Manual:   false,
-		})
 	}
 
 	return results
